@@ -1,13 +1,13 @@
-#20191021
-##一、Java中的char是否可以存储中文字符
+# 20191021
+## 一、Java中的char是否可以存储中文字符
 可以，char是用unicode编码，占两个字节，如果某个特殊的汉字没有被包含在unicode编码字符集中，那么，这个char型变量中就不能存储这个特殊汉字
 
-##二、String s =new  String("xc")，定义了几个对象
+## 二、String s =new  String("xc")，定义了几个对象
 一个或两个
 在字符串池中找得到“xc”这个对象，则在堆里创建一个对象供引用
 若在字符串内存池中找不到“xc”这个对象，则在堆和字符串池分别创建一个对象
 
-##三、String有没有长度限制，为什么，如果有，超过限制会发生什么
+## 三、String有没有长度限制，为什么，如果有，超过限制会发生什么
 有
 根据String的源码public String(char value[], int offset, int count)的定义，count是int类型的，最长的长度为 2^32，也就是4G。
 不过，我们在编写源代码的时候，如果使用 Sting str = "aaaa";的形式定义一个字符串，那么双引号里面的ASCII字符最多只能有 65534 个。
@@ -16,7 +16,7 @@
 如果超出这个数量，在编译的时候编译器会报错
 
 
-##四、String,StringBuilder,StringBuffer之间的区别与联系
+## 四、String,StringBuilder,StringBuffer之间的区别与联系
 + String类中对字符串的保存格式为
 >private final char value[];
 
