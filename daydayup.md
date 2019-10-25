@@ -33,11 +33,11 @@ terator和ListIterator主要区别在以下方面：
 > 1.使用范围不同，Iterator可以应用于所有的集合，Set、List和Map和这些集合的子类型。而ListIterator只能用于List及其子类型。
 > 
 > 2. ListIterator有add()方法，可以向List中添加对象，而Iterator不能
-
+> 
 > 3. ListIterator和Iterator都有hasNext()和next()方法，可以实现顺序向后遍历，但是ListIterator有hasPrevious()和previous()方法，可以实现逆向（顺序向前）遍历。Iterator就不可以。
-
+> 
 > 4. ListIterator可以定位当前的索引位置，nextIndex()和previousIndex()可以实现。Iterator没有此功能。
-
+> 
 > 5. 都可实现删除对象，但是ListIterator可以实现对象的修改，set()方法可以实现。Iierator仅能遍历，不能修改。
 
 ## 三、什么是fail-fast ，什么是fail-safe ，有什么区别
@@ -71,7 +71,7 @@ terator和ListIterator主要区别在以下方面：
 
 +  Vector使用同步方法实现，synchronizedList使用同步代码块实现。
 > (因为SynchronizedList只是使用同步代码块包裹了ArrayList的方法，而ArrayList和Vector中同名方法的方法体内容并无太大差异，所以在锁定范围和锁的作用域上两者并无却别。)
-
+> 
 > 使用SynchronizedList的时候，进行遍历时其中有listIterator和listIterator(int index)并没有做同步处理,要手动进行同步处理,但是Vector却对该方法加了方法锁。
 
 + SynchronizedList可以指定锁定的对象。SynchronizedList的同步代码块锁定的是mutex对象，Vector锁定的是this对象。
@@ -426,12 +426,14 @@ Outer.Inner inner = new Outer.Inner();
 ## 四、整型的几种中，各个类型的取值范围是多少，如何计算的，超出范围会发生什么
   
 
-数据类型 | 范围 | 字节数  
-- | :-: | :-: 
-byte | -2^7 ~ 2^7(-128~127) | 1个字节
-short | -2^15 ~ 2^15-1(-32768~32767) | 2个字节
-int | -2^31 ~ 2^31-1(-2147483648~2147483647) | 4个字节
-long | -2^63 ~ 2^63-1(-9223372036854774808~9223372036854774807) | 8个字节
+|数据类型   | 范围  |  字节数 |
+| ------------ | ------------ | ------------ |
+|  byte | -2^7 ~ 2^7(-128~127) | 1个字节
+|  short | -2^15 ~ 2^15-1(-32768~32767) | 2个字节
+|  int | -2^31 ~ 2^31-1(-2147483648~2147483647) | 4个字节
+|  long | -2^63 ~ 2^63-1(-9223372036854774808~9223372036854774807) | 8个字节
+
+
 
 超出范围会发生数据溢出，eg.最大值（2147483647）+1会变成最小值（-2147483648）
 
