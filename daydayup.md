@@ -1,3 +1,358 @@
+#20191031
+## 一、什么是跳表(SkipList)
+跳表是一种可以快速查找，以空间换时间的数据结构，类似于平衡数。跳表是基于链表，插入和删除的效率较高，链表的每个结点不仅记录next结点位置，还可以按照level层级分别记录后继第level个结点。在高并发环境下，平衡树需要一个全局锁来保证整个树的线程安全，而跳表只需要局部锁来控制，查询的时间复杂度为O(longn)  
+Skip list让已排序的数据分布在多层链表中，以0-1随机数决定一个数据的向上攀升与否，通过“空间来换取时间”的一个算法，在每个节点中增加了向前的指针，在插入、删除、查找时可以忽略一些不可能涉及到的结点，从而提高了效率。
+
+结构原理图：
+![](https://img-blog.csdn.net/2018072721393750?watermark/2/text/aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3dlaXhpbl80MTQ2MjA0Nw==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70)
+
+
+## 二、什么是ConcurrentSkipListMap，和ConcurrentHashMap有什么区别
+ConcurrentSkipListMap提供了一种线程安全的并发访问的排序映射表。内部是SkipList（跳表）结构实现，利用底层的插入、删除的CAS原子性操作，通过死循环不断获取最新的结点指针来保证不会出现竞态条件。在理论上能够在O(log(n))时间内完成查找、插入、删除操作。调用ConcurrentSkipListMap的size时，由于多个线程可以同时对映射表进行操作，所以映射表需要遍历整个链表才能返回元素个数，这个操作是个O(log(n))的操作
+
+ConcurrentHashMap采取了“锁分段”技术来细化锁的粒度：把整个map划分为一系列被成为segment的组成单元，一个segment相当于一个小的hashtable。这样，加锁的对象就从整个map变成了一个更小的范围——一个segment。  
+ConcurrentHashMap线程安全并且提高性能原因就在于：对map中的读是并发的，无需加锁；只有在put、remove操作时才加锁，而加锁仅是对需要操作的segment加锁，不会影响其他segment的读写，由此，不同的segment之间可以并发使用，极大地提高了性能。
+
+JDK1.8对ConCurrentHashMap的改动：
+> 1.取消segments字段，直接采用transient volatile HashEntry<K,V>[] table保存数据，采用table数组元素作为锁，从而实现了对每一行数据进行加锁，进一步减少并发冲突的概率。  
+> 2. 把Table数组＋单向链表的数据结构 变成为  Table数组 ＋ 单向链表 ＋ 红黑树的结构。
+
+
+#20191030
+## 一、介绍下CopyOnWriteArrayList,和普通的ArrayList存在哪些区别，以及，什么是CopyOnWrite
+CopyOnWriteArrayList相当于线程安全的ArrayList，它实现了List接口。CopyOnWriteArrayList是支持高并发的。
+
++ CopyOnWriteArrayList  
+> 先copy出一个容器(可以简称副本)，再往新的容器里添加这个新的数据，最后把新的容器的引用地址赋值给了之前那个旧的的容器地址，但是在添加这个数据的期间，其他线程如果要去读取数据，仍然是读取到旧的容器里的数据。可避免在操作集合添加的同时读取会报修改异常，适合并发迭代操作，但是添加操作多时，效率低。
+
++ CopyOnWrite：
+> 线程安全，写时复制， 在往集合中添加数据的时候，先拷贝存储的数组，然后添加元素到拷贝好的数组中，然后用现在的数组去替换成员变量的数组（就是get等读取操作读取的数组）。这个机制和读写锁是一样的，但是比读写锁有改进的地方，那就是读取的时候可以写入的 ，这样省去了读写之间的竞争。适用多读取，少添加。
+
+
+# 20191029
+## 一、HashMap和TreeMap的区别是什么？（需了解红黑树）
+1.HashMap是以数组方式存储key/value，基于哈希表实现，允许null作为key和value；TreeMap：基于红黑二叉树的NavigableMap的实现，不允许null
+2.HashMap是通过hashcode()对其内容进行快速查找的；HashMap中的元素是没有顺序的；TreeMap中所有的元素都是有某一固定顺序的，如果需要得到一个有序的结果，就应该使用TreeMap；  
+3.HashMap和TreeMap都不是线程安全的；  
+4.HashMap继承AbstractMap类；覆盖了hashcode() 和equals() 方法，以确保两个相等的映射返回相同的哈希值；TreeMap继承SortedMap类，保持键的有序顺序；  
+5.使用HashMap要求添加的键类明确定义了hashcode() 和equals() （可以重写该方法），可以调优初始容量和负载因子优化HashMap的空间使用；存入TreeMap的元素应当实现Comparable接口或者实现Comparator接口，会按照排序后的顺序迭代元素，两个相比较的key不得抛出classCastException。  
+6、HashMap：适用于Map插入，删除，定位元素；
+TreeMap：适用于按自然顺序或自定义顺序遍历键（key）；
+
+## 二、所有类都可以作为Map的key么？有什么需要注意的
+可以，但是需要重载hashCode()和equals()两个方法才能实现自定义键在HashMap中的查找
+
+```
+
+	public class Person {
+ 
+  		private String id;
+ 
+  		public Person(String id) {
+    		this.id = id;
+  		}
+ 
+  		@Override
+  		public boolean equals(Object o) {
+    		if (this == o) return true;
+    		if (o == null || getClass() != o.getClass()) return false;
+ 
+    		Person person = (Person) o;
+ 
+    		if (id != null ? !id.equals(person.id) : person.id != null) return false;
+ 
+    		return true;
+  		}
+ 
+  		@Override
+  		public int hashCode() {
+    		return id != null ? id.hashCode() : 0;
+  		}
+	}
+
+```
+
+[示例参考](https://blog.csdn.net/lzhcoder/article/details/84840418)
+
+## 三、了解Java的并发编程包么，并发集合类是什么，有哪些
+J.U.C并发包，即java.util.concurrent包，是JDK的核心工具包，是JDK1.5之后，由 Doug Lea实现并引入
+整个java.util.concurrent包，按照功能可以大致划分如下：
+> juc-locks 锁框架  
+> juc-atomic 原子类框架  
+> juc-sync 同步器框架  
+> juc-collections 集合框架  
+> juc-executors 执行器框架
+
++ 并发集合类：
+> List和Set实现类包括CopyOnWriteArrayList, CopyOnWriteArraySet和ConcurrentSkipListSet  
+> Map的实现类包括: ConcurrentHashMap和ConcurrentSkipListMap  
+> Queue的实现类包括: ArrayBlockingQueue(是数组实现的线程安全的有界的阻塞队列), LinkedBlockingQueue(单向链表实现的(指定大小)阻塞队列，该队列按 FIFO（先进先出）排序元素), LinkedBlockingDeque(双向链表实现的(指定大小)双向并发阻塞队列，该阻塞队列同时支持FIFO和FILO两种操作方式), ConcurrentLinkedQueue(是单向链表实现的无界队列，该队列按 FIFO（先进先出）排序元素)和ConcurrentLinkedDeque(是双向链表实现的无界队列，该队列同时支持FIFO和FILO两种操作方式)
+
+
+# 20191028
+## 一、HashMap和ConcurrentHashMap的区别
++ HashMap
+> 底层数组+链表实现，可以存储null键和null值，线程不安全  
+> 初始size为16，扩容：newsize = oldsize*2，size一定为2的n次幂  
+> 扩容针对整个Map，每次扩容时，原来数组中的元素依次重新计算存放位置，并重新插入  
+> 插入元素后才判断该不该扩容，有可能无效扩容（插入后如果扩容，如果没有再次插入，就会产生无效扩容）  
+> 当Map中元素总数超过Entry数组的75%，触发扩容操作，为了减少链表长度，元素分配更均匀  
+> 计算index方法：index = hash & (tab.length – 1)
+
++ ConcurrentHashMap
+
+> 底层采用分段的数组+链表实现，线程安全  
+> 通过把整个Map分为N个Segment，可以提供相同的线程安全，但是效率提升N倍，默认提升16倍。(读操作不加锁，由于HashEntry的value变量是 volatile的，也能保证读取到最新的值。)  
+>ConcurrentHashMap允许多个修改操作并发进行，其关键在于使用了锁分离技术  
+> 有些方法需要跨段，比如size()和containsValue()，它们可能需要锁定整个表而而不仅仅是某个段，这需要按顺序锁定所有段，操作完毕后，又按顺序释放所有段的锁  
+> 扩容：段内扩容（段内元素超过该段对应Entry数组长度的75%触发扩容，不会对整个Map进行扩容），插入前检测需不需要扩容，有效避免无效扩容
+
+补充：
+> HashMap的初始值还要考虑加载因子:  
+> 哈希冲突：若干Key的哈希值按数组大小取模后，如果落在同一个数组下标上，将组成一条Entry链，对Key的查找需要遍历Entry链上的每个元素执行equals()比较。  
+> 加载因子：为了降低哈希冲突的概率，默认当HashMap中的键值对达到数组大小的75%时，即会触发扩容。因此，如果预估容量是100，即需要设定100/0.75＝134的数组大小。  
+> 空间换时间：如果希望加快Key查找的时间，还可以进一步降低加载因子，加大初始大小，以降低哈希冲突的概率。
+
+ 
+## 二、同样是线程安全的MAP,HashTable和ConcurrentHashMap之间有什么区别
+
++ HashTable
+> 底层数组+链表实现，无论key还是value都不能为null，线程安全，实现线程安全的方式是在修改数据时锁住整个HashTable，效率低，ConcurrentHashMap做了相关优化  
+> 初始size为11，扩容：newsize = olesize*2+1  
+> 计算index的方法：index = (hash & 0x7FFFFFFF) % tab.length
+ 
+ConcurrentHashMap参考20191028中的一。
+  
+> 区别：Hashtable的synchronized是针对整张Hash表的，即每次锁住整张表让线程独占，ConcurrentHashMap允许多个修改操作并发进行，其关键在于使用了锁分离技术
+
+## 三、hashCode()和equals()方法的作用，二者有什么关系
++ hashcode()
+
+	获得哈希码也称为散列码，哈希码的作用是确定该对象在哈希表中的索引位置
+
++ equals() : 
+
+	它的作用也是判断两个对象是否相等。但它一般有两种使用情况：
+> 情况1，类没有覆盖equals()方法。则通过equals()比较该类的两个对象时，等价于通过“==”比较这两个对象。(== : 它的作用是判断两个对象的地址是不是相等。即，判断两个对象是不是同一个对象。)  
+> 情况2，类覆盖了equals()方法。我们用equals()方法来两个对象的内容相等；若它们的内容相等，则返回true(即，认为这两个对象相等)，反之为false。
+
++ 关系：
+> 1.equal()相等的两个对象他们的hashCode()肯定相等，也就是用equal()对比是绝对可靠的。  
+> 2.hashCode()相等的两个对象他们的equal()不一定相等，也就是hashCode()不是绝对可靠的。
+
+
+# 20191027
+## 一、通过给定集合得到一个synchronized的集合
+使用Collections.synchronizedCollection(Collection c)根据指定集合来获取一个synchronized（线程安全的）集合。
+
+## 二、Java中的Map主要有哪几种，之间有什么区别
+常用的map实现类主要有HashMap、HashTable、TreeMap、ConcurrentHashMap、LinkedHashMap、weakHashMap等等。
+区别：
+> HashMap使用位桶和链表实现（最近的jdk1.8改用红黑树存储而非链表），它是线程不安全的Map，方法上都没有synchronize关键字修饰  
+> hashTable是线程安全的一个map实现类，它实现线程安全的方法是在各个方法上添加了synchronize关键字。(但是现在已经不再推荐使用HashTable了)  
+> ConcurrentHashMap这个map实现类是在jdk1.5中加入的，其在jdk1.6/1.7中的主要实现原理是segment段锁，它不再使用和HashTable一样的synchronize一样的关键字对整个方法进行枷锁，而是转而利用segment段落锁来对其进行加锁，以保证Map的多线程安全。在JAVA的jdk1.8中则对ConcurrentHashMap又再次进行了大的修改，取消了segment段锁字段，采用了CAS+Synchronize技术来保障线程安全。底层采用数组+链表+红黑树的存储结构，也就是和HashMap一样。  
+> TreeMap会对Key进行排序，使用了TreeMap存储键值对，再使用iterator进行输出时，会发现其默认采用key由小到大的顺序输出键值对，如果想要按照其他的方式来排序，需要重写也就是override 它的compartor接口。  
+> LinkedHashMap它的特点主要在于linked，底层用的是链表来进行的存储。是先进先出FIFIO上，LinkedHashMap主要依靠双向链表和hash表来实现的。
+
++ 补充ConcurrentHashMap：
+
+	底层采用数组+链表+红黑树的存储结构，也就是和HashMap一样。这里注意Node其实就是保存一个键值对的最基本的对象。其中Value和next都是使用的volatile关键字进行了修饰，以确保线程安全。
+
+
+```
+
+	class Node<K,V> implements Map.Entry<K,V>{
+		final int hash;
+		fianl K key;
+		volatile V val;
+		volatile Node<K,V> next;
+		...
+	}
+```
+
+> 为什么这里会用volatile进行修饰，主要有两个用处：  
+> 1、令这个被修饰的变量的更新具有可见性，一旦该变量遭到了修改，其他线程立马就会知道，立马放弃自己在自己工作内存中持有的该变量值，转而重新去主内存中获取到最新的该变量值。  
+> 2、产生了内存屏障，这里volatile可以保证CPU在执行代码时保证，所有被volatile中被修饰的之前的一定在之前被执行，也就是所谓的“指令重排序”。
+
+> 在插入元素时，会首先进行CAS判定，如果OK就插入其中，并将size+1，但是如果失败了，就会通过自旋锁自旋后再次尝试插入，直到成功。  
+> 所谓的CAS也就是compare And Swap，即在更改前先对内存中的变量值和你指定的那个变量值进行比较，如果相同这说明在这期间没有被修改过，则可以进行修改，而如果不一样了，则就要停止修改，否则就会覆盖掉其他的参数。即内存值a，旧值b，和要修改的值c，如果这里a=b，那么就可以进行更新，就可以将内存值a修改成c。否则就要终止该更新操作。 
+
+同hashMap一样，在JDK1.8中，如果链表中存储的Entry超过了8个则就会自动转换链表为红黑树，提高查询效率。
+
+## 三、遍历map的几种方式
+
+```
+
+    public static void main(String[] args) {
+        Map<String, String> map=new HashMap<String, String>();
+        map.put("张三1", "男");
+        map.put("张三2", "男");
+        map.put("张三3", "男");
+        map.put("张三4", "男");
+        map.put("张三5", "男");
+        
+        //第一种遍历map的方法，通过加强for循环map.keySet()，然后通过键key获取到value值
+        for(String s:map.keySet()){
+            System.out.println("key : "+s+" value : "+map.get(s));
+        }
+        
+        
+        //第二种只遍历键或者值，通过加强for循环
+        for(String s1:map.keySet()){//遍历map的键
+            System.out.println("键key ："+s1);
+        }
+        for(String s2:map.values()){//遍历map的值
+            System.out.println("值value ："+s2);
+        }
+           
+        
+        //第三种方式Map.Entry<String, String>的加强for循环遍历输出键key和值value
+        for(Map.Entry<String, String> entry : map.entrySet()){
+            System.out.println("键 key ："+entry.getKey()+" 值value ："+entry.getValue());
+        }
+       
+        
+        //第四种Iterator遍历获取，然后获取到Map.Entry<String, String>，再得到getKey()和getValue()
+        Iterator<Map.Entry<String, String>> it=map.entrySet().iterator();
+        while(it.hasNext()){
+            Map.Entry<String, String> entry=it.next();
+            System.out.println("键key ："+entry.getKey()+" value ："+entry.getValue());
+        }
+
+		// Lambda 获取key and value
+ 		public void testLambda() {
+    		map.forEach((key, value) -> {
+     		 System.out.println(key + ":" + value);
+    		});
+  		}
+       
+    }
+    
+    
+```
+
+
+# 20191026
+## 一、如何在遍历的同时删除ArrayList中的元素
++ 1.每次list删除元素后，后面的元素都要往前移动一位，就相当于i多加了1，remove后继续遍历就会错过一个元素，所以就需要代码中的i--，抵消remove后，后面元素前移一位的影响*/
+
+```
+
+	 for(int i = 0; i < list.size(); i++){
+		System.out.println(i);
+            if(list.get(i).equals("C")){
+                list.remove(list.get(i));
+                i--;
+            }
+	}
+```
+
++ 2.按索引从大到小，这样remove方法的删除元素导致的后面的元素往前移动一位,对遍历就没有影响了
+
+```
+
+	for(int i= list.size()-1; i > -1; i--){
+		if(list.get(i).equals("C")){
+                list.remove(list.get(i));
+            }
+	}
+
+```
+
++ 3.和1相似，不同的是，是用Itr对象，内含两个指针cursor和lastRet实现的，如果调用remove，相当于cursor回退了一位，和第一种的i--思想有些像
+
+```
+
+	Iterator<String> iterator = list.iterator();
+	while(iterator.hasNext()){
+		String s = iterator.next();
+		if(s.equals("C")){
+			iterator.remove();
+		}
+	}
+
+```
+
+## 二、如何对一组对象进行排序
+需要去重写一个compareTo方法，重写这个方法的时候应该要继承一个接口Comparable。
+
+```
+
+	class Person3 implements Comparable<Person3>{
+		private String name;
+		private int age;
+		private double score;
+	
+		public Person3(String name, int age, double score{
+			super();
+			this.name = name;
+			this.age = age;
+			this.score = score;
+		}		
+	}
+
+	Arrays.sort(array, new Comparator<Person3>(){
+			//传入的时候由用户自己选
+			@Override
+			public int compare(Person3 o1, Person3 o2) {
+				// TODO Auto-generated method stub
+				int age1 = o1.getAge();
+				int age2 = o2.getAge();
+				return age1 > age2 ? age1:(age1==age2) ? 0:-1;
+				
+			}
+		});
+```
+
+## 三、Comparable和Comparator有何区别
+
++ 实现了Comparable接口的类有一个特点，就是这些类是可以和自己比较的，至于具体和另一个实现了Comparable接口的类如何比较，则依赖compareTo方法的实现。compareTo方法的返回值是int，有三种情况：
+
+>1、比较者大于被比较者（也就是compareTo方法里面的对象），那么返回正整数  
+>2、比较者等于被比较者，那么返回0  
+>3、比较者小于被比较者，那么返回负整数
+
+```
+
+	 public interface Comparable<T> {
+   		 public int compareTo(T o);
+ 	}
+
+```
+
++ Comparator可以认为是是一个外比较器，有两种情况可以使用实现Comparator接口的方式：
+> 1、一个对象不支持自己和自己比较（没有实现Comparable接口），但是又想对两个对象进行比较。  
+> 2、一个对象实现了Comparable接口，但是开发者认为compareTo方法中的比较方式并不是自己想要的那种比较方式。
+
+
+> Comparator接口里面有一个compare方法，方法有两个参数T o1和T o2，是泛型的表示方式，分别表示待比较的两个对象，方法返回值和> > Comparable接口一样是int，有三种情况：1、o1大于o2，返回正整数,2、o1等于o2，返回0,3、o1小于o3，返回负整数
+
+
+```
+
+	public interface Comparator<T> {
+   		int compare(T o1, T o2);
+    	boolean equals(Object obj);
+	}
+```
+
+## 四、Java中的集合使用泛型有哪些好处
++ Java泛型（generics）
+
+	是JDK5中引入的一个新特性，泛型提供了编译时类型安全监测机制，该机制允许我们在编译时检测到非法的类型数据结构；
+	泛型的本质就是参数化类型，也就是所操作的数据类型被指定为一个参数；
+
++ 泛型的好处
+
+> 1.类型安全。泛型的主要目的就是提高Java程序的类型安全。通过知道使用泛型定义的变量的类型限制，编译器可以在一个高得多的程度上验证类型假设。没有泛型，这些假设只能我们自己记或者代码注释；  
+> 2.消除强制类型转换。泛型一个附带好处是，消除代码中许多强制类型的转换。减少代码出错率，更好阅读；  
+> 3.潜在的性能收益。可以带来更好的优化可能。在泛型的初始实现中，编译器强制类型转换（没有泛型的话，程序员会指定这些强制类型转换，）插入生成的字节码中。但是更多类型信息可用于编译器这一事实，为以后的JVM可以带来更好的优化。由于泛型的实现方式，支持泛型几乎不需要JVM或类文件更改，所有工作都在编译器中完成，编译器生成的类没有泛型（和强制类型转换），只是来确保数据类型安全；
+
+## 五、当一个集合被作为参数传递给一个函数时，如何才能确保函数不能修改它
+在作为参数传递之前，可以使用Collections.unmodifiableCollection(Collection c)方法创建一个只读集合，这将确保改变集合的任何操作都会抛出UnsupportedOperationException。
+
+
+
 # 20191025
 ## 一、Enumeration和Iterator接口的区别
 
